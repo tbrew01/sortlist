@@ -183,16 +183,19 @@ except TimeoutError:
             self.assertIn("JSONDecodeError", log)
             self.assertNotIn("RUN_SUCCESS", log)
 
-    def test_every_run_has_separate_log_and_no_input_is_explained(self):
+    def test_idle_runs_share_daily_log_and_keep_distinct_run_ids(self):
         with patch.object(move, "DB_FILE", str(self.db)), \
              patch.object(move, "SOURCE_FILE", str(self.root / "absent.xls")):
             move.main()
             move.main()
         logs = list((self.root / "logs").glob("move_sortinglist_*.log"))
-        self.assertEqual(len(logs), 2)
+        self.assertEqual(len(logs), 1)
         for path in logs:
-            self.assertIn("NO_INPUT_FILE", path.read_text())
-            self.assertIn("RUN_SUCCESS", path.read_text())
+            log = path.read_text()
+            self.assertEqual(log.count("NO_INPUT_FILE"), 2)
+            self.assertEqual(log.count("RUN_SUCCESS"), 2)
+            starts = [line for line in log.splitlines() if "RUN_START" in line]
+            self.assertEqual(len({line.split("run=")[1].split()[0] for line in starts}), 2)
 
     def test_sms_failure_does_not_log_credentials_or_recipient(self):
         from types import ModuleType
@@ -211,6 +214,27 @@ except TimeoutError:
         self.assertIn("SMS_FAILED", log)
         for private in ("secret-token", "secret-sid", "private-phone", "private-from"):
             self.assertNotIn(private, log)
+
+    def test_concurrent_runs_append_complete_lines_to_one_daily_log(self):
+        worker = '''import logging, sys
+import tracking_store as s
+with s.logged_run(sys.argv[1], 'move_sortinglist'):
+    for number in range(5):
+        logging.info('TEST_MARKER worker=%s row=%s payload=%s', sys.argv[2], number, 'x' * 10000)
+'''
+        processes = [subprocess.Popen([sys.executable, "-c", worker, str(self.db), str(i)],
+                                     cwd=Path(__file__).parent) for i in range(4)]
+        for process in processes:
+            self.assertEqual(process.wait(timeout=15), 0)
+        logs = list((self.root / "logs").glob("move_sortinglist_*.log"))
+        self.assertEqual(len(logs), 1)
+        lines = logs[0].read_text().splitlines()
+        self.assertEqual(sum("RUN_SUCCESS" in line for line in lines), 4)
+        markers = [line for line in lines if "TEST_MARKER" in line]
+        self.assertEqual(len(markers), 20)
+        for line in markers:
+            self.assertEqual(line.count("TEST_MARKER"), 1)
+            self.assertTrue(line.endswith("x" * 10000))
 
 
 if __name__ == "__main__":

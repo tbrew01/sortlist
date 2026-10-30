@@ -13,7 +13,7 @@ Data stays in `C:\delaval-spreadsheet`. See [installation and recovery
 instructions](INSTALL_FIX.md) before replacing the existing scripts.
 
 The shared tracking helper provides process locking, atomic JSON replacement,
-pre-save backups and detailed per-run logs in `C:\delaval-spreadsheet\logs`.
+pre-save backups and detailed daily logs in `C:\delaval-spreadsheet\logs`.
 Existing data, SMS configuration and credentials are not included.
 
 Run the automated checks with `python -m unittest -v test_tracking`. Windows

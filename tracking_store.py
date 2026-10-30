@@ -24,15 +24,25 @@ def file_details(path):
             "sha256": digest.hexdigest()}
 
 
+class SharedLogHandler(logging.FileHandler):
+    """Serialize appends across processes, including long database snapshots."""
+
+    def emit(self, record):
+        try:
+            with tracking_lock(self.baseFilename, log_events=False):
+                super().emit(record)
+        except Exception:
+            self.handleError(record)
+
+
 @contextmanager
 def logged_run(db_file, script):
-    """Use one log per run so overlapping processes never rotate each other's log."""
+    """Append all runs to one daily file per script, retaining run identifiers."""
     log_dir = Path(db_file).parent / "logs"
     log_dir.mkdir(exist_ok=True)
     run_id = uuid4().hex
-    log_path = log_dir / (script + "_" + datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-                          + "_" + run_id + ".log")
-    handler = logging.FileHandler(log_path, encoding="utf-8")
+    log_path = log_dir / (script + "_" + datetime.now().strftime("%Y%m%d") + ".log")
+    handler = SharedLogHandler(log_path, encoding="utf-8")
     handler.setFormatter(logging.Formatter(
         "%(asctime)s %(levelname)s pid=%(process)d run=" + run_id + " %(message)s"))
     root = logging.getLogger()
@@ -41,7 +51,7 @@ def logged_run(db_file, script):
     root.addHandler(handler)
     started = time.monotonic()
     try:
-        logging.info("RUN_START script=%s version=tracking-logs-v2 python=%s cwd=%s db=%s local_time=%s",
+        logging.info("RUN_START script=%s version=tracking-logs-v3 python=%s cwd=%s db=%s local_time=%s",
                      script, os.sys.version.split()[0], os.getcwd(),
                      Path(db_file).resolve(), datetime.now().astimezone().isoformat())
         logging.info("SCRIPT_FILE file=%s", json.dumps(file_details(Path(__file__).with_name(script + ".py"))))
@@ -59,11 +69,12 @@ def logged_run(db_file, script):
 
 
 @contextmanager
-def tracking_lock(db_file, timeout=120):
+def tracking_lock(db_file, timeout=120, log_events=True):
     """Lock a stable sidecar file for the entire run; OS releases on exit/crash."""
     lock_path = Path(str(db_file) + ".lock")
     started = time.monotonic()
-    logging.info("LOCK_WAIT path=%s timeout_seconds=%s", lock_path, timeout)
+    if log_events:
+        logging.info("LOCK_WAIT path=%s timeout_seconds=%s", lock_path, timeout)
     with open(lock_path, "a+b") as handle:
         handle.seek(0, os.SEEK_END)
         if handle.tell() == 0:
@@ -85,7 +96,8 @@ def tracking_lock(db_file, timeout=120):
                     raise TimeoutError("Another sorting-list run holds " + str(lock_path))
                 time.sleep(0.1)
         try:
-            logging.info("LOCK_ACQUIRED waited_seconds=%.3f", time.monotonic() - started)
+            if log_events:
+                logging.info("LOCK_ACQUIRED waited_seconds=%.3f", time.monotonic() - started)
             yield
         finally:
             if os.name == "nt":
@@ -93,7 +105,8 @@ def tracking_lock(db_file, timeout=120):
                 msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
             else:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-            logging.info("LOCK_RELEASED path=%s", lock_path)
+            if log_events:
+                logging.info("LOCK_RELEASED path=%s", lock_path)
 
 
 def validate_db(db):

@@ -45,7 +45,7 @@ it may reactivate expired or inseminated cows.
 
 Successfully read insemination CSVs are moved to InseminatedCows\processed only
 after their database changes are saved. Other files are left alone. Removal
-decisions and active lists are recorded in the per-run logs under C:\delaval-spreadsheet\logs. Protect this log and
+decisions and active lists are recorded in the daily logs under C:\delaval-spreadsheet\logs. Protect this log and
 backups like other farm records. If a run fails after saving but before archiving
 or creating Excel output, investigate the log and remaining inputs before retrying.
 
@@ -55,15 +55,16 @@ not send SMS, run real Excel or touch production files. Process locking was
 exercised on Linux; the Windows locking branch still needs on-machine validation.
 
 
-## Detailed diagnostic logs (version 2)
+## Detailed diagnostic logs (version 3)
 
-Each run creates a separate UTF-8 file automatically in:
+Runs append to a shared UTF-8 daily file for each script automatically in:
 
     C:\delaval-spreadsheet\logs
 
-Names begin with move_sortinglist_ or generate_sortinglist_ and include the local
-start date/time and a unique run ID. All entries include the process ID and run
-ID. This works with the scripts installed together in C:\Scripts; no scheduled
+Names are move_sortinglist_YYYYMMDD.log and generate_sortinglist_YYYYMMDD.log.
+All entries include the process ID and a unique run ID, so individual runs can
+still be traced. Concurrent appends are protected with a separate log lock. The
+.log.lock sidecar files are normal and should be left in place. This works with the scripts installed together in C:\Scripts; no scheduled
 task argument changes or new Python packages are required. The task account must
 have permission to create and write the logs folder. If logging cannot start,
 the run fails before processing data.
@@ -101,7 +102,24 @@ Keep the backup folder and processed insemination CSVs available for comparison.
 Do not send sms_config.json or SMS credentials. Avoid running the scripts again
 just to create diagnostics: normal runs alter the database and may send SMS.
 
-The 12 automated tests cover the database protections, concurrent updates,
-per-run success/failure logs, cow decisions, skipped input and SMS log redaction.
+The 13 automated tests cover the database protections, concurrent updates,
+daily success/failure logs, cow decisions, skipped input and SMS log redaction.
 Actual Windows locking, Excel output and SMS delivery still require validation on
 your Windows computer.
+
+
+## Too many scheduled launches
+
+Version 3 creates at most one .log file per script per start date, even if the
+scheduler launches the script repeatedly. It does not change the task schedule.
+Each launch still has RUN_START and RUN_SUCCESS/RUN_FAILED entries with its own
+run ID. No-input runs remain visible as NO_INPUT_FILE for scheduling diagnosis.
+Old per-run log files are preserved and are not deleted by this update.
+
+The originally uploaded movesortinglist.xml has one daily CalendarTrigger with
+one-minute repetition, no repetition duration, and IgnoreNew instance policy.
+That export alone does not establish the current schedule or explain ten starts
+per minute. Check current Task Scheduler History and whether another task or
+external process also launches C:\Scripts\move_sortinglist.py. Retain or export
+the current task settings before changing triggers. Do not disable the generator
+or alter the minute interval merely to reduce logs.
