@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+logs/
+*.log
+*.lock
+*.tmp
+*.backups/
+draft_tracking.json
+sms_config.json
+*.xls
+*.xlsx
+InseminatedCows/
