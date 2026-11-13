@@ -104,7 +104,7 @@ Keep the backup folder and processed insemination CSVs available for comparison.
 Do not send sms_config.json or SMS credentials. Avoid running the scripts again
 just to create diagnostics: normal runs alter the database and may send SMS.
 
-The 16 automated tests cover the database protections, concurrent updates,
+The 20 automated tests cover the database protections, concurrent updates,
 daily success/failure logs, cow decisions, skipped input and SMS log redaction.
 Actual Windows locking, Excel output and SMS delivery still require validation on
 your Windows computer.
@@ -148,3 +148,18 @@ Regression coverage reproduces 3106's return at 17:28:38 on 12 November, confirm
 she survives the 03:00 run on 13 November, preserves her timer on repeat sightings,
 and confirms she expires after 36 hours. It also covers cows returning after an
 insemination removal and clears both kinds of stale removal records.
+
+
+## SMS AI-window estimate
+
+Replace only C:\Scripts\generate_sortinglist.py to enable the new wording,
+active count and estimated matching cows for the next 08:00 or 18:00 AI session.
+Stop the generator task and wait for its current run to finish, back up the
+script, replace it, then re-enable the task. Keep tracking_store.py alongside it.
+No configuration-file or dependency changes are needed. The mover timer fix
+remains necessary for accurate arrival timestamps when inactive cows return.
+
+The estimate uses arrival +8.5 through +19.5 hours, based on three operator
+examples; it is not a feed of actual Datamars optimum windows. It changes SMS
+content only. Draft output and the 36-hour removal rule are unchanged. See the
+README for assumptions, limitations and diagnostic events.

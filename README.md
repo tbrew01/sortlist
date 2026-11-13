@@ -206,6 +206,9 @@ When enabled in the local `sms_config.json`, the generator sends:
 
 ```text
 Today's heat cows for drafting (2): 2501, 3106
+Next AI: 14 Nov 08:00
+Estimated in window (1): 3106
+Estimate only: arrival +8.5 to +19.5 hours.
 ```
 
 Configuration uses `sms_enabled`, `twilio_sid`, `twilio_token`, `twilio_from` and
@@ -215,11 +218,50 @@ no SMS. Notifications describe the generated active list, not confirmed physical
 drafting or DelPro import success. `SMS_ACCEPTED` in a log means Twilio accepted
 the request, not that the handset has received it.
 
-The count is the total number of active cows in the extended draft list, including
-cows retained from earlier milkings. It is not a count of cows in an optimum
-insemination window. Datamars window start/end times and the next milking time are
-not currently inputs to these scripts; `first_seen` is an arrival timestamp and
-must not be used as a substitute for Datamars' optimum-window timing.
+The first count is the total active extended draft list, including cows retained
+from earlier milkings. A second count estimates which of those cows will be in
+their optimum window at the next planned **8:00 am or 6:00 pm AI session**. These
+are approximate AI times supplied by the operator, not milking/import times.
+The generator chooses the next session from the Windows local clock; after the
+evening session it uses 8:00 am the next day. At exactly a session time it uses
+that session. The example above illustrates the message format, not live cow data.
+
+### Estimated optimum-window timing
+
+Datamars' actual optimum-window times are not available in the incoming export.
+The operator supplied three examples which were compared with mover logs:
+
+| Cow | Arrival in tracking | Reported optimum window | Delay to start |
+| --- | --- | --- | --- |
+| 2923 | 13 Nov 2026, 04:00:38 | 13 Nov, 11:59–22:59 | 7 h 58 min |
+| 3276 | 13 Nov 2026, 15:04:38 | 13 Nov, 23:42–14 Nov, 10:42 | 8 h 37 min |
+| 3482 | 12 Nov 2026, 19:28:38 | 13 Nov, 04:13–15:13 | 8 h 44 min |
+
+All three reported windows lasted 11 hours. The SMS therefore uses a rough window
+of **first_seen +8.5 hours to first_seen +19.5 hours**, and counts a cow if the
+next AI session falls within that interval, including either endpoint. The
+matching cow numbers are listed. Missing/unusable arrival times are reported as
+`Timing unavailable`, rather than counted as known misses.
+
+This estimate is calibrated from only three examples. The arrival timestamp is
+when the mover first processed the cow, not observed heat onset or the actual
+Datamars window. Export delays and variation between cows can affect it. Treat
+the count as a planning aid and check actual Datamars timings when deciding AI
+timing. The script does not infer a new biological window from every sighting.
+It uses the current drafting episode's first_seen, including the fresh timestamp
+when an inactive cow returns.
+
+This feature changes **SMS content only**. It does not filter the spreadsheet,
+remove cows, reset timers, or change the 36-hour drafting/insemination rules.
+Already-inactive cows are not in the SMS input list. The model constants and AI
+hours are near the top of generate_sortinglist.py. Changing the SMS send schedule
+still requires editing the Windows scheduled task. Longer lists/messages may be
+sent as multiple SMS segments.
+
+The logs record `AI_WINDOW_ESTIMATE` entries for each cow and an
+`AI_SESSION_ESTIMATE` summary when SMS is enabled and configured. These label
+predictions explicitly and record the arrival time, estimated start/end and
+chosen session for later comparison with Datamars.
 
 ## Investigating a missing cow
 
@@ -256,7 +298,7 @@ From the repository directory, run:
 python -m unittest -v test_tracking
 ```
 
-The 16 automated tests cover concurrent updates, locking, corrupted databases,
+The 20 automated tests cover concurrent updates, locking, corrupted databases,
 backup/write failures, shared daily logging, SMS-log redaction, and drafting
 rules. Regression tests confirm that a returning inactive cow gets a new timer,
 that repeated active sightings do not extend it, and that expiry still happens

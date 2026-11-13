@@ -290,6 +290,53 @@ except TimeoutError:
         self.assertEqual(rest.Client.return_value.messages.create.call_args.kwargs["body"],
                          "Today's heat cows for drafting (3): 2923, 3276, 3482")
 
+    def test_ai_estimate_matches_examples_at_6pm_and_8am_next_day(self):
+        db = {"2923": dict(first_seen="2026-11-13T04:00:38"),
+              "3276": dict(first_seen="2026-11-13T15:04:38"),
+              "3482": dict(first_seen="2026-11-12T19:28:38")}
+        before = json.dumps(db, sort_keys=True)
+        body = generate.build_sms_body([2923, 3276, 3482], db, datetime(2026, 11, 13, 17))
+        self.assertIn("Next AI: 13 Nov 18:00", body)
+        self.assertIn("Estimated in window (1): 2923", body)
+        self.assertIn("Estimate only", body)
+        body = generate.build_sms_body([2923, 3276, 3482], db, datetime(2026, 11, 13, 18, 1))
+        self.assertIn("Next AI: 14 Nov 08:00", body)
+        self.assertIn("Estimated in window (1): 3276", body)
+        self.assertEqual(json.dumps(db, sort_keys=True), before)
+
+    def test_ai_estimate_only_counts_supplied_active_list_and_reports_unknown(self):
+        db = {"2923": dict(first_seen="2026-11-13T04:00:38", active=False),
+              "3276": dict(first_seen="2026-11-13T15:04:38", active=True)}
+        body = generate.build_sms_body([3276, 9999], db, datetime(2026, 11, 13, 17))
+        self.assertIn("Estimated in window (0): none", body)
+        self.assertIn("Timing unavailable: 9999", body)
+        self.assertNotIn("2923", body)
+
+    def test_ai_estimate_includes_exact_start_end_and_session_boundaries(self):
+        db = {"1": dict(first_seen="2026-11-13T09:30:00"),
+              "2": dict(first_seen="2026-11-12T22:30:00")}
+        body = generate.build_sms_body([1, 2], db, datetime(2026, 11, 13, 18))
+        self.assertIn("Next AI: 13 Nov 18:00", body)
+        self.assertIn("Estimated in window (2): 1, 2", body)
+
+    def test_sms_sends_ai_estimate_with_tracking_records(self):
+        from types import ModuleType
+        from unittest.mock import Mock
+        rest = ModuleType("twilio.rest")
+        rest.Client = Mock()
+        config = dict(sms_enabled=True, twilio_sid="test-sid", twilio_token="test-token",
+                      twilio_from="test-from", recipients=["test-recipient"])
+        db = {"3276": dict(first_seen="2026-11-13T15:04:38")}
+        with patch.dict(sys.modules, {"twilio": ModuleType("twilio"), "twilio.rest": rest}), \
+             patch.object(generate, "load_sms_config", return_value=config), \
+             patch.object(generate, "datetime") as clock:
+            clock.now.return_value = datetime(2026, 11, 13, 20)
+            clock.fromisoformat.side_effect = datetime.fromisoformat
+            generate.send_sms_list([3276], db)
+        body = rest.Client.return_value.messages.create.call_args.kwargs["body"]
+        self.assertIn("Next AI: 14 Nov 08:00", body)
+        self.assertIn("Estimated in window (1): 3276", body)
+
     def test_concurrent_runs_append_complete_lines_to_one_daily_log(self):
         worker = '''import logging, sys
 import tracking_store as s

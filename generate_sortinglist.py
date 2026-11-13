@@ -23,6 +23,12 @@ HEADER_CODE_COL2 = 300096
 MAX_HOURS = 36
 RETENTION_DAYS = 30
 
+# Approximate AI windows based on the three Datamars examples supplied by the
+# operator. Arrival is a proxy, not an observed heat-onset or Datamars window.
+ESTIMATED_WINDOW_START_HOURS = 8.5
+ESTIMATED_WINDOW_LENGTH_HOURS = 11
+AI_HOURS = (8, 18)
+
 
 # -------------------- SMS SUPPORT --------------------
 
@@ -39,7 +45,44 @@ def load_sms_config():
         return {"sms_enabled": False}
 
 
-def send_sms_list(cows):
+def build_sms_body(cows, db=None, now=None):
+    """Summarise active draft cows and estimate matches for the next AI session."""
+    body = f"Today's heat cows for drafting ({len(cows)}): " + ", ".join(str(c) for c in cows)
+    if db is None:
+        return body
+    now = now or datetime.now()
+    sessions = [now.replace(hour=hour, minute=0, second=0, microsecond=0)
+                + timedelta(days=day) for day in (0, 1) for hour in AI_HOURS]
+    next_ai = min(session for session in sessions if session >= now)
+    estimated = []
+    unknown = []
+    for cow in cows:
+        rec = db.get(str(cow), {})
+        try:
+            arrival = datetime.fromisoformat(rec["first_seen"])
+            start = arrival + timedelta(hours=ESTIMATED_WINDOW_START_HOURS)
+            end = start + timedelta(hours=ESTIMATED_WINDOW_LENGTH_HOURS)
+            matches = start <= next_ai <= end
+        except (KeyError, TypeError, ValueError):
+            unknown.append(str(cow))
+            logging.warning("AI_ESTIMATE_UNAVAILABLE cow=%s; no usable arrival time", cow)
+            continue
+        logging.info("AI_WINDOW_ESTIMATE cow=%s arrival=%s start=%s end=%s next_ai=%s matches=%s",
+                     cow, arrival.isoformat(), start.isoformat(), end.isoformat(),
+                     next_ai.isoformat(), matches)
+        if matches:
+            estimated.append(str(cow))
+    body += (f"\nNext AI: {next_ai.strftime('%d %b %H:%M')}"
+             f"\nEstimated in window ({len(estimated)}): " + (", ".join(estimated) or "none"))
+    if unknown:
+        body += "\nTiming unavailable: " + ", ".join(unknown)
+    body += "\nEstimate only: arrival +8.5 to +19.5 hours."
+    logging.info("AI_SESSION_ESTIMATE next_ai=%s estimated_cows=%s unknown_cows=%s",
+                 next_ai.isoformat(), estimated, unknown)
+    return body
+
+
+def send_sms_list(cows, db=None):
     cfg = load_sms_config()
     if not cfg.get("sms_enabled", False):
         logging.info("SMS_DISABLED")
@@ -57,8 +100,7 @@ def send_sms_list(cows):
     from twilio.rest import Client  # pip install twilio
 
     client = Client(sid, token)
-    cow_list_str = ", ".join(str(c) for c in cows)
-    body = f"Today's heat cows for drafting ({len(cows)}): {cow_list_str}"
+    body = build_sms_body(cows, db)
 
     for recipient_index, r in enumerate(recipients, start=1):
         try:
@@ -228,7 +270,7 @@ def create_delpro_xls(db):
 
     # SMS cows
     if active_cows:
-        send_sms_list(active_cows)
+        send_sms_list(active_cows, db)
     else:
         logging.info("SMS_SKIPPED_NO_ACTIVE_COWS")
 
