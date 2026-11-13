@@ -157,6 +157,68 @@ except TimeoutError:
         for event in ("COW_ADDED cow=3419", "COW_SEEN_AGAIN cow=2501", "INPUT_MOVED", "RUN_SUCCESS"):
             self.assertIn(event, log)
 
+    def test_returning_inactive_cow_gets_new_timer_and_cleared_removal_fields(self):
+        returned_at = datetime(2026, 11, 12, 17, 28, 38)
+        source = self.root / "incoming.xls"
+        dest = self.root / "output" / "sortinglist.xls"
+        for reason in ("timeout_36h", "inseminated"):
+            with self.subTest(previous_reason=reason):
+                old = dict(first_seen="2026-11-03T13:38:38", last_seen="2026-11-03T13:38:38",
+                           active=False, cleared_reason=reason, cleared_time="2026-11-05T03:00:31")
+                self.db.write_text(json.dumps({"3106": old, "2501": record()}))
+                source.write_bytes(b"test fixture")
+                with patch.object(move, "DB_FILE", str(self.db)), \
+                     patch.object(move, "SOURCE_FILE", str(source)), \
+                     patch.object(move, "DEST_FILE", str(dest)), \
+                     patch.object(move, "datetime") as clock, \
+                     patch.object(move, "read_cows_from_xls", return_value=["3106", "3106"]):
+                    clock.now.return_value = returned_at
+                    move.main()
+                updated = store.load_db(self.db)["3106"]
+                self.assertEqual(updated, dict(first_seen=returned_at.isoformat(),
+                                 last_seen=returned_at.isoformat(), active=True,
+                                 cleared_reason=None, cleared_time=None))
+                backups = [json.loads(p.read_text())["3106"]
+                           for p in self.root.glob("*.backups/*.json")]
+                self.assertIn(old, backups)
+        log = next((self.root / "logs").glob("move_sortinglist_*.log")).read_text()
+        self.assertIn("COW_REACTIVATION_PENDING cow=3106", log)
+        self.assertIn("new_first_seen=2026-11-12T17:28:38", log)
+
+    def test_3106_survives_next_generator_and_expires_after_new_36_hours(self):
+        source = self.root / "incoming.xls"
+        source.write_bytes(b"test fixture")
+        self.db.write_text(json.dumps({"3106": dict(
+            first_seen="2026-11-03T13:38:38", last_seen="2026-11-03T13:38:38",
+            active=False, cleared_reason="timeout_36h", cleared_time="2026-11-05T03:00:31")}))
+        with patch.object(move, "DB_FILE", str(self.db)), \
+             patch.object(move, "SOURCE_FILE", str(source)), \
+             patch.object(move, "DEST_FILE", str(self.root / "output" / "sortinglist.xls")), \
+             patch.object(move, "datetime") as clock, \
+             patch.object(move, "read_cows_from_xls", return_value=["3106"]):
+            clock.now.return_value = datetime(2026, 11, 12, 17, 28, 38)
+            move.main()
+            # Seeing the active cow again must not extend the new timer.
+            source.write_bytes(b"second fixture")
+            clock.now.return_value = datetime(2026, 11, 13, 1, 0, 0)
+            move.main()
+        self.assertEqual(store.load_db(self.db)["3106"]["first_seen"], "2026-11-12T17:28:38")
+        with patch.object(generate, "DB_FILE", str(self.db)), \
+             patch.object(generate, "load_inseminated_cows", return_value=set()), \
+             patch.object(generate, "create_delpro_xls") as output, \
+             patch.object(generate, "datetime") as clock:
+            clock.fromisoformat.side_effect = datetime.fromisoformat
+            for when in (datetime(2026, 11, 13, 3), datetime(2026, 11, 14, 5, 28, 38)):
+                clock.now.return_value = when
+                generate.main()
+                self.assertTrue(store.load_db(self.db)["3106"]["active"])
+                self.assertTrue(output.call_args.args[0]["3106"]["active"])
+            clock.now.return_value = datetime(2026, 11, 14, 5, 28, 39)
+            generate.main()
+        updated = store.load_db(self.db)["3106"]
+        self.assertFalse(updated["active"])
+        self.assertEqual(updated["cleared_reason"], "timeout_36h")
+
     def test_corrupt_database_stops_both_scripts_before_side_effects(self):
         self.db.write_text('{"broken":')
         source = self.root / "incoming.xls"

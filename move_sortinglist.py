@@ -97,10 +97,20 @@ def run_locked():
                 "cleared_time": None
             }
         else:
-            logging.info("COW_SEEN_AGAIN cow=%s previous=%s first_seen_preserved=%s",
-                         cow_id, json.dumps(db[cow_id], sort_keys=True), db[cow_id]["first_seen"])
+            logging.info("COW_SEEN_AGAIN cow=%s previous=%s",
+                         cow_id, json.dumps(db[cow_id], sort_keys=True))
             if not db[cow_id]["active"]:
-                logging.warning("COW_REACTIVATED cow=%s; original first_seen retained by existing rule", cow_id)
+                previous_first_seen = db[cow_id]["first_seen"]
+                db[cow_id]["first_seen"] = now
+                db[cow_id]["cleared_reason"] = None
+                db[cow_id]["cleared_time"] = None
+                logging.info(
+                    "COW_REACTIVATION_PENDING cow=%s old_first_seen=%s new_first_seen=%s; "
+                    "fresh 36-hour timer, previous removal cleared; effective after DB_COMMITTED",
+                    cow_id, previous_first_seen, now)
+            else:
+                logging.info("COW_TIMER_PRESERVED cow=%s first_seen=%s",
+                             cow_id, db[cow_id]["first_seen"])
             db[cow_id]["last_seen"] = now
             db[cow_id]["active"] = True
 
