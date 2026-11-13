@@ -288,7 +288,7 @@ except TimeoutError:
              patch.object(generate, "load_sms_config", return_value=config):
             generate.send_sms_list([2923, 3276, 3482])
         self.assertEqual(rest.Client.return_value.messages.create.call_args.kwargs["body"],
-                         "Heat draft (3): 2923, 3276, 3482")
+                         "Today's heat cows for drafting (3): 2923, 3276, 3482")
 
     def test_ai_estimate_matches_examples_at_6pm_and_8am_next_day(self):
         db = {"2923": dict(first_seen="2026-11-13T04:00:38"),
@@ -296,19 +296,19 @@ except TimeoutError:
               "3482": dict(first_seen="2026-11-12T19:28:38")}
         before = json.dumps(db, sort_keys=True)
         body = generate.build_sms_body([2923, 3276, 3482], db, datetime(2026, 11, 13, 17))
-        self.assertIn("AI 13 Nov 18:00 (est. windows)", body)
-        self.assertIn("In window: 2923", body)
-        self.assertIn("est. windows", body)
+        self.assertIn("In optimum (est. 13 Nov 18:00 AI):", body)
+        self.assertIn("In optimum (est. 13 Nov 18:00 AI): 2923", body)
+        self.assertIn("(est.", body)
         body = generate.build_sms_body([2923, 3276, 3482], db, datetime(2026, 11, 13, 18, 1))
-        self.assertIn("AI 14 Nov 08:00 (est. windows)", body)
-        self.assertIn("In window: 3276", body)
+        self.assertIn("In optimum (est. 14 Nov 08:00 AI):", body)
+        self.assertIn("In optimum (est. 14 Nov 08:00 AI): 3276", body)
         self.assertEqual(json.dumps(db, sort_keys=True), before)
 
     def test_ai_estimate_only_counts_supplied_active_list_and_reports_unknown(self):
         db = {"2923": dict(first_seen="2026-11-13T04:00:38", active=False),
               "3276": dict(first_seen="2026-11-13T15:04:38", active=True)}
         body = generate.build_sms_body([3276, 9999], db, datetime(2026, 11, 13, 17))
-        self.assertIn("In window: none", body)
+        self.assertIn("In optimum (est. 13 Nov 18:00 AI): none", body)
         self.assertIn("Timing unknown: 9999", body)
         self.assertNotIn("2923", body)
 
@@ -316,8 +316,8 @@ except TimeoutError:
         db = {"1": dict(first_seen="2026-11-13T09:30:00"),
               "2": dict(first_seen="2026-11-12T22:30:00")}
         body = generate.build_sms_body([1, 2], db, datetime(2026, 11, 13, 18))
-        self.assertIn("AI 13 Nov 18:00 (est. windows)", body)
-        self.assertIn("In window: 1, 2", body)
+        self.assertIn("In optimum (est. 13 Nov 18:00 AI):", body)
+        self.assertIn("In optimum (est. 13 Nov 18:00 AI): 1, 2", body)
 
     def test_priority_and_past_windows_for_evening_ai(self):
         db = {"2923": dict(first_seen="2026-11-13T04:00:38"),
@@ -325,7 +325,7 @@ except TimeoutError:
               "3482": dict(first_seen="2026-11-12T19:28:38")}
         body = generate.build_sms_body([2923, 3276, 3482], db, datetime(2026, 11, 13, 17))
         self.assertIn("Priority: 2923", body)
-        self.assertIn("Past window: 3482", body)
+        self.assertIn("Past optimum (est.): 3482", body)
         self.assertLessEqual(len(body), 160)
         self.assertTrue(body.isascii())
 
@@ -335,7 +335,7 @@ except TimeoutError:
               "2": dict(first_seen="2026-11-13T03:00:00")}
         body = generate.build_sms_body([3276, 1, 2, 9999], db, datetime(2026, 11, 13, 20))
         self.assertIn("Priority: 3276", body)
-        self.assertIn("Past window: 2", body)
+        self.assertIn("Past optimum (est.): 2", body)
         self.assertIn("Timing unknown: 9999", body)
 
     def test_priority_and_past_boundaries_are_consistent_with_inclusive_window(self):
@@ -343,7 +343,7 @@ except TimeoutError:
         db = {"1": dict(first_seen="2026-11-12T22:30:00")}
         body = generate.build_sms_body([1], db, datetime(2026, 11, 13, 17))
         self.assertIn("Priority: 1", body)
-        self.assertIn("Past window: none", body)
+        self.assertNotIn("Past optimum", body)
 
     def test_sms_sends_ai_estimate_with_tracking_records(self):
         from types import ModuleType
@@ -360,8 +360,8 @@ except TimeoutError:
             clock.fromisoformat.side_effect = datetime.fromisoformat
             generate.send_sms_list([3276], db)
         body = rest.Client.return_value.messages.create.call_args.kwargs["body"]
-        self.assertIn("AI 14 Nov 08:00 (est. windows)", body)
-        self.assertIn("In window: 3276", body)
+        self.assertIn("In optimum (est. 14 Nov 08:00 AI):", body)
+        self.assertIn("In optimum (est. 14 Nov 08:00 AI): 3276", body)
 
     def test_concurrent_runs_append_complete_lines_to_one_daily_log(self):
         worker = '''import logging, sys

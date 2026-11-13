@@ -205,11 +205,10 @@ tasks. Their shared lock protects updates if their schedules coincide.
 When enabled in the local `sms_config.json`, the generator sends:
 
 ```text
-Heat draft (3): 2923, 3276, 3482
-AI 13 Nov 18:00 (est. windows)
-In window: 2923
+Today's heat cows for drafting (3): 2923, 3276, 3482
+In optimum (est. 13 Nov 18:00 AI): 2923
 Priority: 2923
-Past window: 3482
+Past optimum (est.): 3482
 ```
 
 Configuration uses `sms_enabled`, `twilio_sid`, `twilio_token`, `twilio_from` and
@@ -220,7 +219,7 @@ drafting or DelPro import success. `SMS_ACCEPTED` in a log means Twilio accepted
 the request, not that the handset has received it.
 
 The first count is the total active extended draft list, including cows retained
-from earlier milkings. The `In window` line estimates which of those cows will be in
+from earlier milkings. The `In optimum` line estimates which of those cows will be in
 their optimum window at the next planned **8:00 am or 6:00 pm AI session**. These
 are approximate AI times supplied by the operator, not milking/import times.
 The generator chooses the next session from the Windows local clock; after the
@@ -245,7 +244,7 @@ matching cow numbers are listed. The SMS also identifies **Priority**:
 active cows in their estimated window at the coming session whose window ends
 before the following session. These are the cows most likely to miss their window if they are not caught this time.
 Cows whose windows end before the coming session are listed separately as
-**Past window**. Neither label overrides the actual Datamars
+**Past optimum (est.)**. Neither label overrides the actual Datamars
 window or removes cows from the draft list. A window ending exactly at a session
 is counted as covering that session.
 
@@ -319,6 +318,8 @@ Windows locking and DelPro import behaviour need checks on the farm's computer.
 The compact SMS uses short labels and omits repeated counts and per-cow end
 times; full estimated start/end times remain in the logs. `Priority` means
 currently estimated in-window cows whose window ends before the following AI
-session. `Past window` means estimated to be past the window by the named session.
+session. `Past optimum (est.)` means estimated to be past the window by the named session.
 The three-cow example fits within 160 characters; longer cow lists can still
 require multiple SMS segments. All timing lines are estimates.
+
+The past-optimum line is omitted when no listed cows are estimated to be past their window.
