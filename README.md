@@ -205,7 +205,7 @@ tasks. Their shared lock protects updates if their schedules coincide.
 When enabled in the local `sms_config.json`, the generator sends:
 
 ```text
-Extended draft list cows: 2501, 3106, ...
+Today's heat cows for drafting (2): 2501, 3106
 ```
 
 Configuration uses `sms_enabled`, `twilio_sid`, `twilio_token`, `twilio_from` and
@@ -214,6 +214,12 @@ Missing or disabled configuration skips SMS; an empty active list also produces
 no SMS. Notifications describe the generated active list, not confirmed physical
 drafting or DelPro import success. `SMS_ACCEPTED` in a log means Twilio accepted
 the request, not that the handset has received it.
+
+The count is the total number of active cows in the extended draft list, including
+cows retained from earlier milkings. It is not a count of cows in an optimum
+insemination window. Datamars window start/end times and the next milking time are
+not currently inputs to these scripts; `first_seen` is an arrival timestamp and
+must not be used as a substitute for Datamars' optimum-window timing.
 
 ## Investigating a missing cow
 
@@ -250,7 +256,7 @@ From the repository directory, run:
 python -m unittest -v test_tracking
 ```
 
-The 15 automated tests cover concurrent updates, locking, corrupted databases,
+The 16 automated tests cover concurrent updates, locking, corrupted databases,
 backup/write failures, shared daily logging, SMS-log redaction, and drafting
 rules. Regression tests confirm that a returning inactive cow gets a new timer,
 that repeated active sightings do not extend it, and that expiry still happens

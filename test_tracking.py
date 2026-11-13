@@ -277,6 +277,19 @@ except TimeoutError:
         for private in ("secret-token", "secret-sid", "private-phone", "private-from"):
             self.assertNotIn(private, log)
 
+    def test_sms_uses_heat_drafting_label_and_total_count(self):
+        from types import ModuleType
+        from unittest.mock import Mock
+        rest = ModuleType("twilio.rest")
+        rest.Client = Mock()
+        config = dict(sms_enabled=True, twilio_sid="test-sid", twilio_token="test-token",
+                      twilio_from="test-from", recipients=["test-recipient"])
+        with patch.dict(sys.modules, {"twilio": ModuleType("twilio"), "twilio.rest": rest}), \
+             patch.object(generate, "load_sms_config", return_value=config):
+            generate.send_sms_list([2923, 3276, 3482])
+        self.assertEqual(rest.Client.return_value.messages.create.call_args.kwargs["body"],
+                         "Today's heat cows for drafting (3): 2923, 3276, 3482")
+
     def test_concurrent_runs_append_complete_lines_to_one_daily_log(self):
         worker = '''import logging, sys
 import tracking_store as s

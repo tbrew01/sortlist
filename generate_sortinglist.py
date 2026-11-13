@@ -58,7 +58,7 @@ def send_sms_list(cows):
 
     client = Client(sid, token)
     cow_list_str = ", ".join(str(c) for c in cows)
-    body = f"Extended draft list cows: {cow_list_str}"
+    body = f"Today's heat cows for drafting ({len(cows)}): {cow_list_str}"
 
     for recipient_index, r in enumerate(recipients, start=1):
         try:

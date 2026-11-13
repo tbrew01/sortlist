@@ -104,7 +104,7 @@ Keep the backup folder and processed insemination CSVs available for comparison.
 Do not send sms_config.json or SMS credentials. Avoid running the scripts again
 just to create diagnostics: normal runs alter the database and may send SMS.
 
-The 15 automated tests cover the database protections, concurrent updates,
+The 16 automated tests cover the database protections, concurrent updates,
 daily success/failure logs, cow decisions, skipped input and SMS log redaction.
 Actual Windows locking, Excel output and SMS delivery still require validation on
 your Windows computer.
