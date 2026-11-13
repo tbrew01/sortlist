@@ -205,12 +205,11 @@ tasks. Their shared lock protects updates if their schedules coincide.
 When enabled in the local `sms_config.json`, the generator sends:
 
 ```text
-Today's heat cows for drafting (2): 2501, 3106
-Next AI: 14 Nov 08:00
-Estimated in window (1): 3106
-Priority this AI - est. out before 14 Nov 18:00 (1): 3106 (ends 14 Nov 10:30)
-Est. past window by next AI (0): none
-Estimate only: arrival +8.5 to +19.5 hours.
+Heat draft (3): 2923, 3276, 3482
+AI 13 Nov 18:00 (est. windows)
+In window: 2923
+Priority: 2923
+Past window: 3482
 ```
 
 Configuration uses `sms_enabled`, `twilio_sid`, `twilio_token`, `twilio_from` and
@@ -221,7 +220,7 @@ drafting or DelPro import success. `SMS_ACCEPTED` in a log means Twilio accepted
 the request, not that the handset has received it.
 
 The first count is the total active extended draft list, including cows retained
-from earlier milkings. A second count estimates which of those cows will be in
+from earlier milkings. The `In window` line estimates which of those cows will be in
 their optimum window at the next planned **8:00 am or 6:00 pm AI session**. These
 are approximate AI times supplied by the operator, not milking/import times.
 The generator chooses the next session from the Windows local clock; after the
@@ -242,17 +241,16 @@ The operator supplied three examples which were compared with mover logs:
 All three reported windows lasted 11 hours. The SMS therefore uses a rough window
 of **first_seen +8.5 hours to first_seen +19.5 hours**, and counts a cow if the
 next AI session falls within that interval, including either endpoint. The
-matching cow numbers are listed. The SMS also identifies **Priority this AI**:
+matching cow numbers are listed. The SMS also identifies **Priority**:
 active cows in their estimated window at the coming session whose window ends
-before the following session. It includes their estimated end date/time, so these
-are the cows most likely to miss their window if they are not caught this time.
+before the following session. These are the cows most likely to miss their window if they are not caught this time.
 Cows whose windows end before the coming session are listed separately as
-**Est. past window by next AI**. Neither label overrides the actual Datamars
+**Past window**. Neither label overrides the actual Datamars
 window or removes cows from the draft list. A window ending exactly at a session
 is counted as covering that session.
 
 Missing/unusable arrival times are reported as
-`Timing unavailable`, rather than counted as known misses.
+`Timing unknown`, rather than counted as known misses.
 
 This estimate is calibrated from only three examples. The arrival timestamp is
 when the mover first processed the cow, not observed heat onset or the actual
@@ -316,3 +314,11 @@ that repeated active sightings do not extend it, and that expiry still happens
 after 36 hours. Tests use temporary data and simulated spreadsheet operations;
 they do not send live SMS or modify production files. Actual Excel automation,
 Windows locking and DelPro import behaviour need checks on the farm's computer.
+
+
+The compact SMS uses short labels and omits repeated counts and per-cow end
+times; full estimated start/end times remain in the logs. `Priority` means
+currently estimated in-window cows whose window ends before the following AI
+session. `Past window` means estimated to be past the window by the named session.
+The three-cow example fits within 160 characters; longer cow lists can still
+require multiple SMS segments. All timing lines are estimates.

@@ -47,7 +47,7 @@ def load_sms_config():
 
 def build_sms_body(cows, db=None, now=None):
     """Summarise active draft cows and estimate matches for the next AI session."""
-    body = f"Today's heat cows for drafting ({len(cows)}): " + ", ".join(str(c) for c in cows)
+    body = f"Heat draft ({len(cows)}): " + ", ".join(str(c) for c in cows)
     if db is None:
         return body
     now = now or datetime.now()
@@ -78,17 +78,15 @@ def build_sms_body(cows, db=None, now=None):
         if matches:
             estimated.append(str(cow))
         if last_chance:
-            priority.append(f"{cow} (ends {end.strftime('%d %b %H:%M')})")
+            priority.append(str(cow))
         if past_by_next:
             past.append(str(cow))
-    body += (f"\nNext AI: {next_ai.strftime('%d %b %H:%M')}"
-             f"\nEstimated in window ({len(estimated)}): " + (", ".join(estimated) or "none"))
-    body += (f"\nPriority this AI - est. out before {following_ai.strftime('%d %b %H:%M')} "
-             f"({len(priority)}): " + (", ".join(priority) or "none"))
-    body += (f"\nEst. past window by next AI ({len(past)}): " + (", ".join(past) or "none"))
+    body += (f"\nAI {next_ai.strftime('%d %b %H:%M')} (est. windows)"
+             "\nIn window: " + (", ".join(estimated) or "none"))
+    body += "\nPriority: " + (", ".join(priority) or "none")
+    body += "\nPast window: " + (", ".join(past) or "none")
     if unknown:
-        body += "\nTiming unavailable: " + ", ".join(unknown)
-    body += "\nEstimate only: arrival +8.5 to +19.5 hours."
+        body += "\nTiming unknown: " + ", ".join(unknown)
     logging.info("AI_SESSION_ESTIMATE next_ai=%s following_ai=%s estimated_cows=%s priority=%s past_by_next=%s unknown_cows=%s",
                  next_ai.isoformat(), following_ai.isoformat(), estimated, priority, past, unknown)
     return body

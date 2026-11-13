@@ -166,6 +166,6 @@ README for assumptions, limitations and diagnostic events.
 
 
 The generator SMS also lists priority cows whose estimated windows cover the next
-AI but end before the following session, including estimated end times. Cows
+AI but end before the following session, with estimated end times retained in the logs. Cows
 already estimated to be past their window by the next session are listed
 separately. These are planning estimates and do not change the spreadsheet.
