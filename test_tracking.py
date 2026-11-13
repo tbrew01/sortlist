@@ -319,6 +319,30 @@ except TimeoutError:
         self.assertIn("Next AI: 13 Nov 18:00", body)
         self.assertIn("Estimated in window (2): 1, 2", body)
 
+    def test_priority_and_past_windows_for_evening_ai(self):
+        db = {"2923": dict(first_seen="2026-11-13T04:00:38"),
+              "3276": dict(first_seen="2026-11-13T15:04:38"),
+              "3482": dict(first_seen="2026-11-12T19:28:38")}
+        body = generate.build_sms_body([2923, 3276, 3482], db, datetime(2026, 11, 13, 17))
+        self.assertIn("Priority this AI - est. out before 14 Nov 08:00 (1): 2923 (ends 13 Nov 23:30)", body)
+        self.assertIn("Est. past window by next AI (1): 3482", body)
+
+    def test_morning_priority_excludes_future_unknown_and_already_past(self):
+        db = {"3276": dict(first_seen="2026-11-13T15:04:38"),
+              "1": dict(first_seen="2026-11-14T02:00:00"),
+              "2": dict(first_seen="2026-11-13T03:00:00")}
+        body = generate.build_sms_body([3276, 1, 2, 9999], db, datetime(2026, 11, 13, 20))
+        self.assertIn("Priority this AI - est. out before 14 Nov 18:00 (1): 3276 (ends 14 Nov 10:34)", body)
+        self.assertIn("Est. past window by next AI (1): 2", body)
+        self.assertIn("Timing unavailable: 9999", body)
+
+    def test_priority_and_past_boundaries_are_consistent_with_inclusive_window(self):
+        # A window ending at the next AI is still priority, not already past.
+        db = {"1": dict(first_seen="2026-11-12T22:30:00")}
+        body = generate.build_sms_body([1], db, datetime(2026, 11, 13, 17))
+        self.assertIn("Priority this AI - est. out before 14 Nov 08:00 (1): 1", body)
+        self.assertIn("Est. past window by next AI (0): none", body)
+
     def test_sms_sends_ai_estimate_with_tracking_records(self):
         from types import ModuleType
         from unittest.mock import Mock

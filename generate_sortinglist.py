@@ -54,7 +54,10 @@ def build_sms_body(cows, db=None, now=None):
     sessions = [now.replace(hour=hour, minute=0, second=0, microsecond=0)
                 + timedelta(days=day) for day in (0, 1) for hour in AI_HOURS]
     next_ai = min(session for session in sessions if session >= now)
+    following_ai = min(session for session in sessions if session > next_ai)
     estimated = []
+    priority = []
+    past = []
     unknown = []
     for cow in cows:
         rec = db.get(str(cow), {})
@@ -67,18 +70,27 @@ def build_sms_body(cows, db=None, now=None):
             unknown.append(str(cow))
             logging.warning("AI_ESTIMATE_UNAVAILABLE cow=%s; no usable arrival time", cow)
             continue
-        logging.info("AI_WINDOW_ESTIMATE cow=%s arrival=%s start=%s end=%s next_ai=%s matches=%s",
+        last_chance = matches and end < following_ai
+        past_by_next = end < next_ai
+        logging.info("AI_WINDOW_ESTIMATE cow=%s arrival=%s start=%s end=%s next_ai=%s matches=%s priority=%s past_by_next=%s",
                      cow, arrival.isoformat(), start.isoformat(), end.isoformat(),
-                     next_ai.isoformat(), matches)
+                     next_ai.isoformat(), matches, last_chance, past_by_next)
         if matches:
             estimated.append(str(cow))
+        if last_chance:
+            priority.append(f"{cow} (ends {end.strftime('%d %b %H:%M')})")
+        if past_by_next:
+            past.append(str(cow))
     body += (f"\nNext AI: {next_ai.strftime('%d %b %H:%M')}"
              f"\nEstimated in window ({len(estimated)}): " + (", ".join(estimated) or "none"))
+    body += (f"\nPriority this AI - est. out before {following_ai.strftime('%d %b %H:%M')} "
+             f"({len(priority)}): " + (", ".join(priority) or "none"))
+    body += (f"\nEst. past window by next AI ({len(past)}): " + (", ".join(past) or "none"))
     if unknown:
         body += "\nTiming unavailable: " + ", ".join(unknown)
     body += "\nEstimate only: arrival +8.5 to +19.5 hours."
-    logging.info("AI_SESSION_ESTIMATE next_ai=%s estimated_cows=%s unknown_cows=%s",
-                 next_ai.isoformat(), estimated, unknown)
+    logging.info("AI_SESSION_ESTIMATE next_ai=%s following_ai=%s estimated_cows=%s priority=%s past_by_next=%s unknown_cows=%s",
+                 next_ai.isoformat(), following_ai.isoformat(), estimated, priority, past, unknown)
     return body
 
 

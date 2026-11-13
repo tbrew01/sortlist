@@ -104,7 +104,7 @@ Keep the backup folder and processed insemination CSVs available for comparison.
 Do not send sms_config.json or SMS credentials. Avoid running the scripts again
 just to create diagnostics: normal runs alter the database and may send SMS.
 
-The 20 automated tests cover the database protections, concurrent updates,
+The 23 automated tests cover the database protections, concurrent updates,
 daily success/failure logs, cow decisions, skipped input and SMS log redaction.
 Actual Windows locking, Excel output and SMS delivery still require validation on
 your Windows computer.
@@ -163,3 +163,9 @@ The estimate uses arrival +8.5 through +19.5 hours, based on three operator
 examples; it is not a feed of actual Datamars optimum windows. It changes SMS
 content only. Draft output and the 36-hour removal rule are unchanged. See the
 README for assumptions, limitations and diagnostic events.
+
+
+The generator SMS also lists priority cows whose estimated windows cover the next
+AI but end before the following session, including estimated end times. Cows
+already estimated to be past their window by the next session are listed
+separately. These are planning estimates and do not change the spreadsheet.

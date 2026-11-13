@@ -208,6 +208,8 @@ When enabled in the local `sms_config.json`, the generator sends:
 Today's heat cows for drafting (2): 2501, 3106
 Next AI: 14 Nov 08:00
 Estimated in window (1): 3106
+Priority this AI - est. out before 14 Nov 18:00 (1): 3106 (ends 14 Nov 10:30)
+Est. past window by next AI (0): none
 Estimate only: arrival +8.5 to +19.5 hours.
 ```
 
@@ -240,7 +242,16 @@ The operator supplied three examples which were compared with mover logs:
 All three reported windows lasted 11 hours. The SMS therefore uses a rough window
 of **first_seen +8.5 hours to first_seen +19.5 hours**, and counts a cow if the
 next AI session falls within that interval, including either endpoint. The
-matching cow numbers are listed. Missing/unusable arrival times are reported as
+matching cow numbers are listed. The SMS also identifies **Priority this AI**:
+active cows in their estimated window at the coming session whose window ends
+before the following session. It includes their estimated end date/time, so these
+are the cows most likely to miss their window if they are not caught this time.
+Cows whose windows end before the coming session are listed separately as
+**Est. past window by next AI**. Neither label overrides the actual Datamars
+window or removes cows from the draft list. A window ending exactly at a session
+is counted as covering that session.
+
+Missing/unusable arrival times are reported as
 `Timing unavailable`, rather than counted as known misses.
 
 This estimate is calibrated from only three examples. The arrival timestamp is
@@ -298,7 +309,7 @@ From the repository directory, run:
 python -m unittest -v test_tracking
 ```
 
-The 20 automated tests cover concurrent updates, locking, corrupted databases,
+The 23 automated tests cover concurrent updates, locking, corrupted databases,
 backup/write failures, shared daily logging, SMS-log redaction, and drafting
 rules. Regression tests confirm that a returning inactive cow gets a new timer,
 that repeated active sightings do not extend it, and that expiry still happens
