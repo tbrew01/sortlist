@@ -208,7 +208,7 @@ When enabled in the local `sms_config.json`, the generator sends:
 Today's heat cows for drafting (3): 2923, 3276, 3482
 In optimum (1): 2923
 Priority (1): 2923
-Past window (1): 3482
+Past optimum (1): 3482
 ```
 
 Configuration uses `sms_enabled`, `twilio_sid`, `twilio_token`, `twilio_from` and
@@ -244,7 +244,7 @@ matching cow numbers are listed. The SMS also identifies **Priority**:
 active cows in their estimated window at the coming session whose window ends
 before the following session. These are the cows most likely to miss their window if they are not caught this time.
 Cows whose windows end before the coming session are listed separately as
-**Past window**. Neither label overrides the actual Datamars
+**Past optimum**. Neither label overrides the actual Datamars
 window or removes cows from the draft list. A window ending exactly at a session
 is counted as covering that session.
 
@@ -318,11 +318,11 @@ Windows locking and DelPro import behaviour need checks on the farm's computer.
 The compact SMS uses short labels, keeps counts on every list and omits dates,
 estimate labels and per-cow end times; full estimated start/end times remain in the logs. `Priority` means
 currently estimated in-window cows whose window ends before the following AI
-session. `Past window` means estimated to be past the window by the named session.
+session. `Past optimum` means estimated to be past the window by the named session.
 The three-cow example fits within 160 characters; longer cow lists can still
 require multiple SMS segments. All timing lines are estimates.
 
-The Past window line is always shown, including `(0): none` when empty.
+The Past optimum line is always shown, including `(0): none` when empty.
 In optimum and Priority also show zero counts when empty. Dates and estimate
 labels are intentionally omitted from the SMS at the operator's request; the
 underlying timing remains an estimate and is documented above and in the logs.

@@ -321,9 +321,9 @@ except TimeoutError:
               "3482": dict(first_seen="2026-11-12T19:28:38")}
         body = generate.build_sms_body([2923, 3276, 3482], db, datetime(2026, 11, 13, 17))
         self.assertIn("Priority (1): 2923", body)
-        self.assertIn("Past window (1): 3482", body)
+        self.assertIn("Past optimum (1): 3482", body)
         self.assertEqual(body, "Today's heat cows for drafting (3): 2923, 3276, 3482\n"
-                         "In optimum (1): 2923\nPriority (1): 2923\nPast window (1): 3482")
+                         "In optimum (1): 2923\nPriority (1): 2923\nPast optimum (1): 3482")
         self.assertTrue(body.isascii())
 
     def test_morning_priority_excludes_future_unknown_and_already_past(self):
@@ -332,7 +332,7 @@ except TimeoutError:
               "2": dict(first_seen="2026-11-13T03:00:00")}
         body = generate.build_sms_body([3276, 1, 2, 9999], db, datetime(2026, 11, 13, 20))
         self.assertIn("Priority (1): 3276", body)
-        self.assertIn("Past window (1): 2", body)
+        self.assertIn("Past optimum (1): 2", body)
         self.assertIn("Timing unknown (1): 9999", body)
 
     def test_priority_and_past_boundaries_are_consistent_with_inclusive_window(self):
@@ -340,7 +340,7 @@ except TimeoutError:
         db = {"1": dict(first_seen="2026-11-12T22:30:00")}
         body = generate.build_sms_body([1], db, datetime(2026, 11, 13, 17))
         self.assertIn("Priority (1): 1", body)
-        self.assertIn("Past window (0): none", body)
+        self.assertIn("Past optimum (0): none", body)
 
     def test_sms_sends_ai_estimate_with_tracking_records(self):
         from types import ModuleType

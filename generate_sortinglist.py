@@ -83,7 +83,7 @@ def build_sms_body(cows, db=None, now=None):
             past.append(str(cow))
     body += (f"\nIn optimum ({len(estimated)}): " + (", ".join(estimated) or "none"))
     body += f"\nPriority ({len(priority)}): " + (", ".join(priority) or "none")
-    body += f"\nPast window ({len(past)}): " + (", ".join(past) or "none")
+    body += f"\nPast optimum ({len(past)}): " + (", ".join(past) or "none")
     if unknown:
         body += f"\nTiming unknown ({len(unknown)}): " + ", ".join(unknown)
     logging.info("AI_SESSION_ESTIMATE next_ai=%s following_ai=%s estimated_cows=%s priority=%s past_by_next=%s unknown_cows=%s",
